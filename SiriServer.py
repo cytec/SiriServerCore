@@ -16,6 +16,7 @@ import PluginManager
 import db
 import logging
 import sys
+import os
     
 try:       
     from OpenSSL import crypto
@@ -180,7 +181,39 @@ def create_self_signed_cert():
         \t\tTHE CERTIFICATES MUST MATCH! IF YOU DID THIS HERE BEFORE, THE OLD ca.pem WON'T WORK ANYMORE\n
         \t\tYou can just EMail the keys/ca.pem file to yourself\n
         """
-    
+ 
+def daemonize():
+    """
+    Fork off as a daemon
+    """
+
+    # Make a non-session-leader child process
+    try:
+        pid = os.fork() #@UndefinedVariable - only available in UNIX
+        if pid != 0:
+            sys.exit(0)
+    except OSError, e:
+        raise RuntimeError("1st fork failed: %s [%d]" %
+                   (e.strerror, e.errno))
+
+    os.setsid() #@UndefinedVariable - only available in UNIX
+
+    # Make sure I can read my own files and shut out others
+    prev = os.umask(0)
+    os.umask(prev and int('077', 8))
+
+    # Make the child a session-leader by detaching from the terminal
+    try:
+        pid = os.fork() #@UndefinedVariable - only available in UNIX
+        if pid != 0:
+            sys.exit(0)
+    except OSError, e:
+        raise RuntimeError("2nd fork failed: %s [%d]" %
+                   (e.strerror, e.errno))
+
+    dev_null = file('/dev/null', 'r')
+    os.dup2(dev_null.fileno(), sys.stdin.fileno())
+
         
 def main():
     
@@ -188,7 +221,22 @@ def main():
     parser.add_option('-l', '--loglevel', default='info', dest='logLevel', help='This sets the logging level you have these options: debug, info, warning, error, critical \t\tThe standard value is info')
     parser.add_option('-p', '--port', default=4443, type='int', dest='port', help='This options lets you use a custom port instead of 443 (use a port > 1024 to run as non root user)')
     parser.add_option('--logfile', default=None, dest='logfile', help='Log to a file instead of stdout.')
+    parser.add_option('--daemon', default=None, dest='daemon', action="store_true", help='run SiriServer as a daemon')
+    parser.add_option('--kill', default=None, dest='kill', action="store_true", help='kills a running daemon')
     (options, _) = parser.parse_args()
+
+    createPID = False
+    PIDFILE = "./SiriServer.pid"
+
+    if options.daemon:
+        if options.logfile:
+            daemonize()        
+            reatePID = True
+        else:
+            #print "\nNo Logfile, cant run as Daemon\n"
+            options.logfile = "./SiriServer.log"
+            daemonize()
+            createPID = True   
     
     x = logging.getLogger()
     x.setLevel(log_levels[options.logLevel])
@@ -202,6 +250,22 @@ def main():
     h.setFormatter(f)
     x.addHandler(h)
     
+
+    if options.kill:
+        if os.path.exists(PIDFILE):
+            try:
+                pidtokill = open(PIDFILE, 'r').read()
+                os.kill(int(pidtokill), 9)
+                os.unlink(PIDFILE)
+                x.info("SiriServer successfully killed")
+            except:
+                x.info("Error trying to Kill " + str(pidtokill))
+            exit()
+        else:
+            x.info("Seems like SiriServer is not running...")
+            exit()
+
+
     create_self_signed_cert()
     
     try: 
@@ -218,7 +282,11 @@ def main():
             x.debug("-> Will use default select interface")
     from twisted.internet import reactor
 
-    
+    if createPID:
+        pid = str(os.getpid())
+        x.info(u"Writing PID " + pid + " to " + str(PIDFILE))
+        file(PIDFILE, 'w').write("%s\n" % pid)
+
     x.info("Starting server on port {0}".format(options.port))
     reactor.listenSSL(options.port, SiriFactory(), ssl.DefaultOpenSSLContextFactory(SERVER_KEY_FILE, SERVER_CERT_FILE))
     reactor.run()
