@@ -183,28 +183,21 @@ def create_self_signed_cert():
         """
  
 def daemonize():
-    """
-    Fork off as a daemon
-    """
-
-    # Make a non-session-leader child process
     try:
-        pid = os.fork() #@UndefinedVariable - only available in UNIX
+        pid = os.fork() 
         if pid != 0:
             sys.exit(0)
     except OSError, e:
         raise RuntimeError("1st fork failed: %s [%d]" %
                    (e.strerror, e.errno))
 
-    os.setsid() #@UndefinedVariable - only available in UNIX
+    os.setsid()
 
-    # Make sure I can read my own files and shut out others
     prev = os.umask(0)
     os.umask(prev and int('077', 8))
 
-    # Make the child a session-leader by detaching from the terminal
     try:
-        pid = os.fork() #@UndefinedVariable - only available in UNIX
+        pid = os.fork() 
         if pid != 0:
             sys.exit(0)
     except OSError, e:
@@ -233,7 +226,6 @@ def main():
             daemonize()        
             reatePID = True
         else:
-            #print "\nNo Logfile, cant run as Daemon\n"
             options.logfile = "./SiriServer.log"
             daemonize()
             createPID = True   
