@@ -17,7 +17,9 @@ import db
 import logging
 import sys
 import os
-    
+import tempfile
+import signal
+  
 try:       
     from OpenSSL import crypto
 except:
@@ -219,14 +221,15 @@ def main():
     (options, _) = parser.parse_args()
 
     createPID = False
-    PIDFILE = "./SiriServer.pid"
+    PIDFILE = "/var/run/SiriServer.pid"
+    #PIDFILE = tempfile.TemporaryFile(mode="w+b", prefix="SiriServer", suffix=".pid", dir="/var/run")
 
     if options.daemon:
         if options.logfile:
             daemonize()        
             reatePID = True
         else:
-            options.logfile = "./SiriServer.log"
+            options.logfile = "/var/log/SiriServer.log"
             daemonize()
             createPID = True   
     
@@ -278,6 +281,12 @@ def main():
         pid = str(os.getpid())
         x.info(u"Writing PID " + pid + " to " + str(PIDFILE))
         file(PIDFILE, 'w').write("%s\n" % pid)
+
+    # if createPID:
+    #     pid = str(os.getpid())
+    #     x.info(u"Writing PID " + pid + " to " + str(PIDFILE))
+    #     PIDFILE.write("%s\n" % pid)
+    #     PIDFILE.seek(0)
 
     x.info("Starting server on port {0}".format(options.port))
     reactor.listenSSL(options.port, SiriFactory(), ssl.DefaultOpenSSLContextFactory(SERVER_KEY_FILE, SERVER_CERT_FILE))
