@@ -250,7 +250,7 @@ def main():
         if os.path.exists(PIDFILE):
             try:
                 pidtokill = open(PIDFILE, 'r').read()
-                os.kill(int(pidtokill), 9)
+                os.kill(int(pidtokill), signal.SIGTERM)
                 os.unlink(PIDFILE)
                 x.info("SiriServer successfully killed")
             except:
