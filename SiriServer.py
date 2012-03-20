@@ -225,10 +225,7 @@ def main():
     (options, _) = parser.parse_args()
 
     createPID = False
-    PIDFILE = tempfile.mkstemp(suffix=".pid", prefix="SiriServer-", dir="/var/run")
-    PIDFILE = PIDFILE[1]
-
-
+    
     if options.daemon:
         if options.logfile:
             daemonize()        
@@ -284,6 +281,8 @@ def main():
     from twisted.internet import reactor
 
     if createPID:
+        PIDFILE = tempfile.mkstemp(suffix=".pid", prefix="SiriServer-", dir="/var/run")
+        PIDFILE = PIDFILE[1]
         pid = str(os.getpid())
         x.info(u"Writing PID " + pid + " to " + str(PIDFILE))
         file(PIDFILE, 'w').write(pid)
