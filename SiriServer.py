@@ -1,3 +1,7 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+
 try:    
     from twisted.internet import ssl
     from twisted.internet.protocol import Factory
@@ -17,7 +21,9 @@ import db
 import logging
 import sys
 import os
-    
+import tempfile
+import signal
+
 try:       
     from OpenSSL import crypto
 except:
@@ -214,19 +220,21 @@ def main():
     parser.add_option('-l', '--loglevel', default='info', dest='logLevel', help='This sets the logging level you have these options: debug, info, warning, error, critical \t\tThe standard value is info')
     parser.add_option('-p', '--port', default=4443, type='int', dest='port', help='This options lets you use a custom port instead of 443 (use a port > 1024 to run as non root user)')
     parser.add_option('--logfile', default=None, dest='logfile', help='Log to a file instead of stdout.')
-    parser.add_option('--daemon', default=None, dest='daemon', action="store_true", help='run SiriServer as a daemon')
-    parser.add_option('--kill', default=None, dest='kill', action="store_true", help='kills a running daemon')
+    parser.add_option('-d', '--daemon', default=None, dest='daemon', action="store_true", help='run SiriServer as a daemon')
+    parser.add_option('--kill', default=None, dest='kill', help='kills a running daemon by the provided pidfile')
     (options, _) = parser.parse_args()
 
     createPID = False
-    PIDFILE = "./SiriServer.pid"
+    PIDFILE = tempfile.mkstemp(suffix=".pid", prefix="SiriServer-", dir="/var/run")
+    PIDFILE = PIDFILE[1]
+
 
     if options.daemon:
         if options.logfile:
             daemonize()        
             reatePID = True
         else:
-            options.logfile = "./SiriServer.log"
+            options.logfile = "/var/log/SiriServer.log"
             daemonize()
             createPID = True   
     
@@ -243,11 +251,12 @@ def main():
     x.addHandler(h)
     
 
-    if options.kill:
+    if options.kill != None:
+        PIDFILE = options.kill
         if os.path.exists(PIDFILE):
             try:
                 pidtokill = open(PIDFILE, 'r').read()
-                os.kill(int(pidtokill), 9)
+                os.kill(int(pidtokill), signal.SIGTERM)
                 os.unlink(PIDFILE)
                 x.info("SiriServer successfully killed")
             except:
@@ -277,12 +286,15 @@ def main():
     if createPID:
         pid = str(os.getpid())
         x.info(u"Writing PID " + pid + " to " + str(PIDFILE))
-        file(PIDFILE, 'w').write("%s\n" % pid)
+        file(PIDFILE, 'w').write(pid)
+
 
     x.info("Starting server on port {0}".format(options.port))
     reactor.listenSSL(options.port, SiriFactory(), ssl.DefaultOpenSSLContextFactory(SERVER_KEY_FILE, SERVER_CERT_FILE))
     reactor.run()
     x.info("Server shutdown complete")
+    if os.path.exists(PIDFILE):
+        os.unlink(PIDFILE)
     
 if __name__ == "__main__":
     main()
