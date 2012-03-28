@@ -292,8 +292,7 @@ def main():
     reactor.listenSSL(options.port, SiriFactory(), ssl.DefaultOpenSSLContextFactory(SERVER_KEY_FILE, SERVER_CERT_FILE))
     reactor.run()
     x.info("Server shutdown complete")
-    if os.path.exists(PIDFILE):
-        os.unlink(PIDFILE)
+
     
 if __name__ == "__main__":
     main()
